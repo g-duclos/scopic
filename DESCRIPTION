@@ -13,3 +13,4 @@ Imports:
     MASS,
     topicmodels,
     lsa
+RoxygenNote: 7.1.1
