@@ -14,11 +14,12 @@ scopic_run(
   min.coef = 1,
   min.spec = 0.1,
   min.sim = 0,
-  model.return = FALSE
+  model.return = FALSE,
+  verbose = FALSE
 )
 }
 \arguments{
-\item{counts.mat}{Counts matrix}
+\item{counts.mat}{Matrix of scRNA-Seq gene counts (columns are cells, rows are genes)}
 
 \item{type}{Options include "genes" (gene set topics) or "cells" (cell cluster topics)}
 
@@ -35,13 +36,17 @@ scopic_run(
 \item{min.spec}{Minimum topic specificity value considered for cell/gene-topic association (value between 0 and 1)}
 
 \item{min.sim}{min.spec Minimum topic similarity value considered for cell/gene-topic association (value between 0 and 1)}
+
+\item{model.return}{FALSE to return only results of model evaluation; TRUE to return results of model evaluation AND model output (topics & terms)}
+
+\item{verbose}{TRUE to print status updates; FALSE to silence status updates}
 }
 \value{
-Scatter plot of dimensionality reduction results
+Topic model analysis of scRNA-Seq gene counts
 }
 \description{
-This function fits topic models to scRNA-Seq gene counts and assigning genes to gene sets OR cells to cell clusters
+This function fits topic models to scRNA-Seq gene counts and assigns genes to gene sets OR cells to cell clusters
 }
 \examples{
-scopic_run(counts.mat = counts.mat, type = c("genes", "cells"), n.topics = 3, n.starts = 5, seed = 12345, max.q = 0.05, min.coef = 1, min.spec = 0.1, min.sim = 0, model.return = FALSE)
+scopic_run(counts.mat = counts.mat, type = c("genes", "cells"), n.topics = 3, n.starts = 5, seeds = 1:length(n.starts), max.q = 0.05, min.coef = 1, min.spec = 0.1, min.sim = 0, model.return = FALSE, verbose = TRUE)
 }

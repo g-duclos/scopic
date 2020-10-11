@@ -1,8 +1,8 @@
 #' Function for fitting topic models to scRNA-Seq gene counts and assigning genes to gene sets OR cells to cell clusters
 #'
 
-#' This function fits topic models to scRNA-Seq gene counts and assigning genes to gene sets OR cells to cell clusters
-#' @param counts.mat Counts matrix
+#' This function fits topic models to scRNA-Seq gene counts and assigns genes to gene sets OR cells to cell clusters
+#' @param counts.mat Matrix of scRNA-Seq gene counts (columns are cells, rows are genes)
 #' @param type Options include "genes" (gene set topics) or "cells" (cell cluster topics)
 #' @param n.topics Number of topics (transcriptional states)
 #' @param n.starts Number of random starts (will select best model)
@@ -11,10 +11,12 @@
 #' @param min.coef Minimum regression coefficient considered for cell/gene-topic association (> 1 is recommended)
 #' @param min.spec Minimum topic specificity value considered for cell/gene-topic association (value between 0 and 1)
 #' @param min.sim min.spec Minimum topic similarity value considered for cell/gene-topic association (value between 0 and 1)
-#' @return Scatter plot of dimensionality reduction results
+#' @param model.return FALSE to return only results of model evaluation; TRUE to return results of model evaluation AND model output (topics & terms)
+#' @param verbose TRUE to print status updates; FALSE to silence status updates
+#' @return Topic model analysis of scRNA-Seq gene counts
 #' @export
 #' @examples
-#' scopic_run(counts.mat = counts.mat, type = c("genes", "cells"), n.topics = 3, n.starts = 5, seed = 12345, max.q = 0.05, min.coef = 1, min.spec = 0.1, min.sim = 0, model.return = FALSE)
+#' scopic_run(counts.mat = counts.mat, type = c("genes", "cells"), n.topics = 3, n.starts = 5, seeds = 1:length(n.starts), max.q = 0.05, min.coef = 1, min.spec = 0.1, min.sim = 0, model.return = FALSE, verbose = TRUE)
 #
 
 scopic_run <- function(
@@ -27,31 +29,20 @@ scopic_run <- function(
 	min.coef = 1,
 	min.spec = 0.1,
 	min.sim = 0,
-	model.return = FALSE) {
+	model.return = FALSE,
+	verbose = FALSE) {
 
 	#
-	if (type == "genes") {
-		type.out = "Gene Set"
-	} else if (type == "cells") {
-		type.out = "Cell Cluster"
-	}
-
-	# Parameters for LDA
-	lda.param <- list(estimate.alpha = TRUE, estimate.beta = TRUE,
-		verbose = 100, save = 0, keep = 0,
-		seed = seeds, nstart = n.starts, best = TRUE)
-
-	# Run LDA
-	cat(paste("Build Model - ", type.out, " Topics: ", n.topics, sep=""), "\n")
-	if (type == "genes") {
-		result.lda <- LDA(t(counts.mat), k=n.states, method="VEM", control=lda.param)
-		} else if (type == "cells") {
-			result.lda <- LDA(counts.mat, k=n.states, method="VEM", control=lda.param)
-			}
-	cat("State Discovery Complete \n")
+	result.lda <- scopic_model(
+		counts.mat = counts.mat,
+		type = type,
+		n.topics = n.topics,
+		n.starts = n.starts,
+		seeds = seeds,
+		verbose = verbose)
 
 	# Extract States Matrix from LDA output
-	states <- posterior(result.lda)$topics
+	states <- topicmodels::posterior(result.lda)$topics
 
 	# Negative Binomial Regression
 	result.stats <- data.frame(row.names=colnames(counts.mat))
@@ -99,7 +90,7 @@ scopic_run <- function(
 	}
 
 	# Calculate State-Specificity and add to results matrix
-	result.spec <- t(sweep(posterior(result.lda)$terms, 2, apply(posterior(result.lda)$terms, 2, sum), "/"))
+	result.spec <- t(sweep(topicmodels::posterior(result.lda)$terms, 2, apply(topicmodels::posterior(result.lda)$terms, 2, sum), "/"))
 	for (k in 1:ncol(states)) {
 		result.stats[, paste(k, "Spec")] <- result.spec[,k]
 	}
@@ -112,13 +103,13 @@ scopic_run <- function(
 	if (type == "genes") {
 		for (i in 1:nrow(rel.exp.mat)) {
 			for (k in 1:ncol(states)) {
-				result.stats[i, paste(k, "Sim")] <- cosine(rel.exp.mat[i,], states[,k])
+				result.stats[i, paste(k, "Sim")] <- lsa::cosine(rel.exp.mat[i,], states[,k])
 				}
 			}
 		} else if (type == "cells") {
 			for (i in 1:ncol(rel.exp.mat)) {
 				for (k in 1:ncol(states)) {
-					result.stats[i, paste(k, "Sim")] <- cosine(rel.exp.mat[,i], states[,k])
+					result.stats[i, paste(k, "Sim")] <- lsa::cosine(rel.exp.mat[,i], states[,k])
 				}
 			}
 		}
@@ -158,7 +149,9 @@ scopic_run <- function(
 		result.list <- list()
 		result.list["stats"] <- list(result.stats)
 		result.list["topics"] <- list(states)
-		result.list["terms"] <- list(posterior(result.lda)$terms)
+		result.list["terms"] <- list(topicmodels::posterior(result.lda)$terms)
+		#
+		return(result.list)
 		#
 		} else {
 			#
